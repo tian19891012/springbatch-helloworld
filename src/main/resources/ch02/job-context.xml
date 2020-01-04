@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bean:beans
+        xmlns="http://www.springframework.org/schema/batch"
+        xmlns:bean="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+    http://www.springframework.org/schema/batch
+    http://www.springframework.org/schema/batch/spring-batch-3.0.xsd">
+
+
+    <!--定义作业仓库 -->
+    <bean:bean id="jobRepository"
+               class="org.springframework.batch.core.repository.support.MapJobRepositoryFactoryBean">
+    </bean:bean>
+    <!--定义作业调度器 -->
+    <bean:bean id="jobLauncher"
+               class="org.springframework.batch.core.launch.support.SimpleJobLauncher">
+        <bean:property name="jobRepository" ref="jobRepository"/>
+    </bean:bean>
+    <!--定义事务管理器 -->
+    <bean:bean id="transactionManager"
+               class="org.springframework.batch.support.transaction.ResourcelessTransactionManager"/>
+    <!--读取信用卡账单文件 -->
+    <!--FlatFileItemReader读取文本文件 resource:需要读取的文件资源 lineMapper:把文本中的一行转化为领域对象CreditBill -->
+    <bean:bean id="csvItemReader"
+               class="org.springframework.batch.item.file.FlatFileItemReader"
+               scope="step">
+        <bean:property name="resource" value="classpath:ch02/data/test.csv"/>
+        <bean:property name="lineMapper">
+            <bean:bean
+                    class="org.springframework.batch.item.file.mapping.DefaultLineMapper">
+                <bean:property name="lineTokenizer" ref="lineTokenizer"/>
+                <!--fieldSetMapper：根据lineTokenizer中定义的names属性映射到creditBill中 最终组装到信用卡账单对象CreditBill -->
+                <bean:property name="fieldSetMapper">
+
+                    <bean:bean
+                            class="org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper">
+                        <bean:property name="prototypeBeanName" value="creditBill">
+                        </bean:property>
+                    </bean:bean>
+
+                </bean:property>
+            </bean:bean>
+
+        </bean:property>
+    </bean:bean>
+    <!--lineTokenizer -->
+    <bean:bean id="lineTokenizer"
+               class="org.springframework.batch.item.file.transform.DelimitedLineTokenizer">
+        <!--lineTokenizer:定义文本中每行的分隔符号 -->
+        <bean:property name="delimiter" value=","/>
+        <bean:property name="names">
+            <bean:list>
+                <bean:value>accountId</bean:value>
+                <bean:value>name</bean:value>
+                <bean:value>amount</bean:value>
+                <bean:value>date</bean:value>
+                <bean:value>address</bean:value>
+            </bean:list>
+        </bean:property>
+    </bean:bean>
+    <!--处理信用卡账单文件 -->
+    <bean:bean id="creditBillProcessor" scope="step"
+               class="com.kevin.CreditBillProcessor">
+    </bean:bean>
+    <!--写信用卡账单文件 -->
+    <!--FlatFileItemWriter:写入文本的文件 resource:写入文本的地址 -->
+    <bean:bean id="csvItemWriter"
+               class="org.springframework.batch.item.file.FlatFileItemWriter"
+               scope="step">
+        <bean:property name="resource"
+                       value="file:target/ch02/out.txt"/>
+        <!--lineAggregator：写入的基础属性 delimiter：分割符 fieldExtracror：将信用卡账单对象Creditbill根据提供的names属性定义的名字转换
+            为Object数组，最终由DelimitedLineAggregator转化一行以逗号分隔的文本 -->
+        <bean:property name="lineAggregator">
+            <bean:bean
+                    class="org.springframework.batch.item.file.transform.DelimitedLineAggregator">
+                <bean:property name="delimiter" value=","></bean:property>
+                <bean:property name="fieldExtractor">
+                    <bean:bean
+                            class="org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor">
+                        <bean:property name="names"
+                                       value="accountId,name,amount,date,address">
+                        </bean:property>
+                    </bean:bean>
+                </bean:property>
+            </bean:bean>
+        </bean:property>
+    </bean:bean>
+</bean:beans>
